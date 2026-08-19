@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Entrevista com a Família — Sala Multimeios (AEE)</title>
+<style>
+  :root{
+    --navy:#1f3864; --navy-dark:#152947; --light:#dce6f1;
+    --grey:#f4f6f9; --line:#c9d4e3; --ink:#20293a; --ok:#2f7d5b;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0; font-family:'Segoe UI', Roboto, Arial, sans-serif; background:var(--grey); color:var(--ink); padding-bottom:90px;}
+  header{background:var(--navy); color:#fff; padding:18px 20px 16px; position:sticky; top:0; z-index:10; box-shadow:0 2px 8px rgba(0,0,0,.15);}
+  header h1{margin:0; font-size:1.15rem;}
+  header p{margin:4px 0 0; font-size:.8rem; opacity:.85;}
+  main{max-width:760px; margin:0 auto; padding:18px 14px;}
+  .note-banner{background:var(--light); border:1px solid #b9cbe6; border-radius:10px; padding:12px 14px; font-size:.8rem; margin-bottom:16px; color:var(--navy-dark);}
+  .section{background:#fff; border:1px solid var(--line); border-radius:10px; margin-bottom:16px; overflow:hidden;}
+  .section-title{background:var(--navy); color:#fff; padding:10px 14px; font-weight:600; font-size:.92rem;}
+  .field{padding:14px; border-bottom:1px solid var(--line);}
+  .field:last-child{border-bottom:none;}
+  .field label.q{display:block; font-weight:600; font-size:.88rem; margin-bottom:8px;}
+  .row2{display:flex; gap:10px; flex-wrap:wrap;}
+  .row2 > div{flex:1; min-width:180px;}
+  .options{display:flex; gap:10px; flex-wrap:wrap; margin-bottom:8px;}
+  .opt{border:1.5px solid var(--line); border-radius:20px; padding:6px 14px; cursor:pointer; font-size:.83rem; background:#fff; user-select:none;}
+  .opt.selected{background:var(--navy); border-color:var(--navy); color:#fff;}
+  textarea, input[type=text]{width:100%; border:1.5px solid var(--line); border-radius:8px; padding:9px 10px; font-size:.88rem; font-family:inherit; resize:vertical; min-height:38px; background:#fff;}
+  textarea:focus, input:focus{outline:none; border-color:var(--navy);}
+  .chips{display:flex; gap:6px; flex-wrap:wrap; margin:8px 0 6px;}
+  .chip{background:var(--light); border:1px solid #b9cbe6; color:var(--navy-dark); border-radius:14px; padding:4px 10px; font-size:.76rem; cursor:pointer; user-select:none;}
+  .chip:hover{background:#c9daf0;}
+  .hint{font-size:.72rem; color:#697687; margin-top:4px;}
+  footer{position:fixed; bottom:0; left:0; right:0; background:#fff; border-top:1px solid var(--line); padding:10px 14px; display:flex; gap:10px; justify-content:center; box-shadow:0 -2px 10px rgba(0,0,0,.06);}
+  button.primary{background:var(--navy); color:#fff; border:none; border-radius:8px; padding:11px 20px; font-size:.85rem; cursor:pointer; font-weight:600;}
+  button.primary:hover{background:var(--navy-dark);}
+  button.secondary{background:#fff; color:var(--navy); border:1.5px solid var(--navy); border-radius:8px; padding:11px 20px; font-size:.85rem; cursor:pointer; font-weight:600;}
+  #thanksScreen{display:none; min-height:80vh; flex-direction:column; align-items:center; justify-content:center; text-align:center; padding:40px 24px;}
+  #thanksScreen.show{display:flex;}
+  .checkcircle{width:72px; height:72px; border-radius:50%; background:var(--ok); color:#fff; display:flex; align-items:center; justify-content:center; font-size:2.2rem; margin-bottom:18px;}
+  #thanksScreen h2{color:var(--navy); margin:0 0 10px; font-size:1.3rem;}
+  #thanksScreen p{color:#4a5568; font-size:.95rem; max-width:420px; line-height:1.5;}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Entrevista com a Família</h1>
+  <p id="modeSubtitle">Sala Multimeios · Atendimento Educacional Especializado (AEE)</p>
+</header>
+
+<div id="thanksScreen">
+  <div class="checkcircle">✓</div>
+  <h2>Confirmado!</h2>
+  <p>Muito obrigado por participar desta entrevista da Sala de Atendimento Educacional Especializado.</p>
+  <button class="secondary" id="btnNova" style="margin-top:24px; display:none;">Iniciar nova entrevista</button>
+</div>
+
+<main id="formArea">
+  <div class="note-banner" id="noteBanner"></div>
+  <div id="sectionsRoot"></div>
+</main>
+
+<footer id="footerArea">
+  <button class="secondary" id="btnReset">Limpar tudo</button>
+  <button class="primary" id="btnSend">Enviar</button>
+</footer>
+
+<script>
+/* ======================= CONFIGURAÇÃO DE MODO ======================= */
+// "download"  -> versão presencial: gera .doc local, sem precisar de internet
+// "email"     -> versão virtual: envia por e-mail via FormSubmit (precisa de internet ao enviar)
+const SEND_MODE = "email"; // trocar para "email" na versão virtual
+const NOTIFY_EMAIL = "eliseu.souza@prof.pmf.sc.gov.br";
+// Para mandar cópia para mais e-mails, liste-os aqui separados por vírgula (ex.: "outra.pessoa@prof.pmf.sc.gov.br,coordenacao@prof.pmf.sc.gov.br").
+// Deixe como string vazia "" se quiser só o NOTIFY_EMAIL acima.
+const CC_EMAILS = "";
+
+/* ======================= TODAS AS SEÇÕES E PERGUNTAS ======================= */
+// tipos de campo: text | textarea | yesno | checklist | chips
+const SECTIONS = [
+  { num: 1, title: "Identificação da criança", fields: [
+    { key: "nome_crianca", type: "text", label: "Nome da criança" },
+    { key: "data_nasc", type: "text", label: "Data de nascimento" },
+    { key: "naturalidade", type: "text", label: "Naturalidade" },
+    { key: "grupo_turno", type: "text", label: "Grupo/turma e turno" },
+    { key: "diagnostico", type: "textarea", rows: 2, label: "Diagnóstico / suspeita diagnóstica (CID, quando houver)" },
+    { key: "aee_atendimento", type: "yesno", label: "Atendimento em AEE", yes: "Está em atendimento no AEE.", no: "Não está em atendimento no AEE." },
+    { key: "aee_horario", type: "text", label: "Dia(s) e horário do atendimento AEE" },
+  ]},
+  { num: 2, title: "Filiação e responsáveis", fields: [
+    { key: "mae_nome", type: "text", label: "Nome da mãe / responsável 1" },
+    { key: "mae_idade", type: "text", label: "Idade" },
+    { key: "mae_escolaridade", type: "text", label: "Escolaridade" },
+    { key: "mae_profissao", type: "text", label: "Profissão / local de trabalho" },
+    { key: "mae_telefone", type: "text", label: "Telefone / horário de trabalho" },
+    { key: "pai_nome", type: "text", label: "Nome do pai / responsável 2" },
+    { key: "pai_idade", type: "text", label: "Idade" },
+    { key: "pai_escolaridade", type: "text", label: "Escolaridade" },
+    { key: "pai_profissao", type: "text", label: "Profissão / local de trabalho" },
+    { key: "pai_telefone", type: "text", label: "Telefone / horário de trabalho" },
+    { key: "pais_mesmo_endereco", type: "yesno", label: "Pai e mãe residem no mesmo endereço?", yes: "Pai e mãe residem no mesmo endereço.", no: "Pai e mãe não residem no mesmo endereço." },
+    { key: "responsavel_legal", type: "textarea", rows: 2, label: "Responsável legal pela criança (se distinto dos pais)" },
+  ]},
+  { num: 3, title: "Composição familiar e rotina de cuidado", fields: [
+    { key: "pessoas_residem", type: "textarea", rows: 3, label: "Pessoas que residem com a criança (nome, idade, parentesco)" },
+    { key: "possui_irmaos", type: "yesno", label: "Possui irmãos?", yes: "A criança possui irmão(s).", no: "A criança não possui irmãos." },
+    { key: "irmaos_detalhe", type: "textarea", rows: 2, label: "Irmãos (nomes e idades, mesmo que não residam juntos)" },
+    { key: "com_quem_fica", type: "textarea", rows: 3, label: "Com quem e onde a criança fica quando não está na unidade educativa / rotina diária de cuidado" },
+  ]},
+  { num: 4, title: "Histórico gestacional, parto e primeiros meses", fields: [
+    { key: "gestacao_planejada", type: "yesno", label: "Gestação planejada?", yes: "Gestação planejada.", no: "Gestação não planejada." },
+    { key: "pre_natal", type: "yesno", label: "Acompanhamento pré-natal?", yes: "Houve acompanhamento pré-natal.", no: "Não houve acompanhamento pré-natal." },
+    { key: "gestacao_incomum", type: "yesno", label: "Durante a gravidez, aconteceu algo fora do comum (ex.: problema de saúde da mãe, sangramento, ameaça de parto antecipado, uso de medicação)?", yes: "Sim, aconteceu algo fora do comum durante a gravidez — ver detalhe abaixo.", no: "Não, nada fora do comum durante a gravidez." },
+    { key: "gestacao_incomum_detalhe", type: "textarea", rows: 2, label: "Se sim, o que aconteceu" },
+    { key: "tipo_parto", type: "checklist", label: "Tipo de parto", options: ["Normal", "Cesárea", "Fórceps/instrumentado", "Não sabe informar"] },
+    { key: "prematuro", type: "checklist", label: "Bebê nasceu antes do tempo (prematuro)?", options: ["Sim", "Não", "Não sabe informar"] },
+    { key: "prematuro_semanas", type: "checklist", label: "Se prematuro, com quantas semanas nasceu", options: ["Menos de 28 semanas", "28 a 32 semanas", "32 a 36 semanas", "Não sabe informar"] },
+    { key: "primeiros_meses_incomum", type: "yesno", label: "Nos primeiros meses de vida, aconteceu algo fora do comum (ex.: internação, dificuldade para respirar ou mamar, icterícia forte)?", yes: "Sim, aconteceu algo fora do comum nos primeiros meses — ver detalhe abaixo.", no: "Não, nada fora do comum nos primeiros meses." },
+    { key: "primeiros_meses_detalhe", type: "textarea", rows: 2, label: "Se sim, o que aconteceu" },
+    { key: "idade_notou_alteracoes", type: "text", label: "Idade em que a família notou alterações no desenvolvimento / foi comunicada do diagnóstico" },
+  ]},
+  { num: 5, title: "Histórico de saúde", fields: [
+    { key: "doencas_infantis", type: "checklist", label: "Doenças infantis já apresentadas", options: ["Sarampo", "Catapora", "Otite", "Rinite", "Alergias", "Convulsões", "Acidentes", "Internações", "Cirurgias", "Nenhuma"] },
+    { key: "outras_doencas", type: "textarea", rows: 2, label: "Outras doenças/condições não listadas acima (especifique)" },
+    { key: "outras_questoes_saude", type: "checklist", label: "Outras questões de saúde a observar", options: ["Visão", "Audição", "Convulsões", "Tiques", "Nenhuma"] },
+    { key: "detalhar_saude", type: "textarea", rows: 2, label: "Detalhar os itens marcados acima" },
+    { key: "medicacao_continua", type: "textarea", rows: 2, label: "Uso de medicação contínua (qual, para quê, quem prescreveu)" },
+    { key: "acompanhamento_medico", type: "textarea", rows: 2, label: "Acompanhamento médico atual (especialidades e frequência)" },
+    { key: "terapias", type: "textarea", rows: 3, label: "Terapias e atividades regulares (fono, TO, psicologia, fisioterapia...) — dias, horários e contato do profissional" },
+    { key: "vacinacao_dia", type: "yesno", label: "Vacinação em dia?", yes: "Vacinação em dia.", no: "Vacinação não está em dia — verificar carteira de vacinação." },
+    { key: "exames_recentes", type: "text", label: "Exames de visão/audição recentes?" },
+    { key: "outras_obs_saude", type: "textarea", rows: 2, label: "Outras observações de saúde relevantes ao trabalho pedagógico" },
+  ]},
+  { num: 6, title: "Desenvolvimento motor", fields: [
+    { key: "marcos_motores", type: "text", label: "Marcos motores (idade em que sentou, engatinhou, andou)" },
+    { key: "equilibrio_coordenacao", type: "textarea", rows: 2, label: "Equilíbrio, coordenação motora, lateralidade / dominância manual" },
+    { key: "obs_motoras", type: "checklist", label: "Observações adicionais", options: ["Anda na ponta dos pés", "Deixa cair objetos com frequência", "Esbarra em portas/móveis/objetos", "Nenhuma"] },
+    { key: "recursos_mobilidade", type: "text", label: "Uso de recursos de mobilidade ou acessibilidade (se houver)" },
+  ]},
+  { num: 7, title: "Comunicação e linguagem", fields: [
+    { key: "como_comunica", type: "textarea", rows: 2, label: "Como a criança se comunica (fala, gestos, expressões, figuras, tecnologia assistiva)" },
+    { key: "palavras_frases", type: "textarea", rows: 2, label: "Palavras ou frases que já utiliza" },
+    { key: "compreende_comandos", type: "textarea", rows: 2, label: "Compreende e executa comandos simples? Exemplos" },
+    { key: "estimulo_comunicacao", type: "textarea", rows: 2, label: "Como a família estimula a comunicação em casa" },
+  ]},
+  { num: 8, title: "Aprendizagem e interesses", fields: [
+    { key: "brincadeiras_interesses", type: "textarea", rows: 2, label: "Brincadeiras, brinquedos e temas de maior interesse" },
+    { key: "reconhece_autonomia", type: "textarea", rows: 3, label: "O que já reconhece ou realiza com autonomia (cores, letras, números, contagem, recorte, desenho...)" },
+    { key: "caracteristicas_avancadas", type: "checklist", label: "A família já notou alguma dessas características na criança?", options: ["Aprende coisas novas muito rápido", "Tem interesse ou conhecimento avançado para a idade em algum assunto específico", "Faz perguntas incomuns ou muito elaboradas para a idade", "Prefere brincar com crianças mais velhas ou com adultos", "Memória fora do comum para fatos, músicas ou histórias", "Tem grande criatividade ou imaginação para inventar brincadeiras", "Concentra-se por muito tempo em algo do interesse dela, sem se cansar", "Incomoda-se com injustiças ou regras que considera erradas", "Não notou nenhuma dessas características"] },
+    { key: "areas_interesse_intenso", type: "textarea", rows: 2, label: "Existe algum assunto, área ou atividade pela qual a criança demonstra interesse ou habilidade fora do comum (ex.: números, letras, música, desenho, mecanismos, animais)?" },
+    { key: "atencao_concentracao", type: "text", label: "Atenção e concentração em atividades dirigidas" },
+    { key: "reacao_texturas", type: "textarea", rows: 2, label: "Reação a texturas e materiais (tinta, massinha, areia, etc.)" },
+  ]},
+  { num: 9, title: "Rotinas de autocuidado", fields: [
+    { key: "alimentacao", type: "chips", rows: 3, label: "Alimentação — preferências, recusas, seletividade, alergias ou restrições, grau de autonomia", chips: [
+      { text: "Alimenta-se bem, sem seletividade relevante.", label: "Sem seletividade" },
+      { text: "Apresenta seletividade alimentar.", label: "Seletividade alimentar" },
+      { text: "Come sozinho(a), com autonomia.", label: "Come sozinho(a)" },
+      { text: "Ainda precisa de ajuda para se alimentar.", label: "Precisa de ajuda" },
+    ]},
+    { key: "caract_sono", type: "checklist", label: "Características do sono", options: ["Tranquilo", "Agitado", "Ronca", "Range os dentes", "Bate as pernas", "Fala dormindo", "Dorme de boca aberta", "Chupa o dedo", "Usa melatonina/outra indicação"] },
+    { key: "sono_detalhe", type: "chips", rows: 2, label: "Sono — horários habituais e outras particularidades (dorme sozinho ou acompanhado, rotina para dormir)", chips: [
+      { text: "Dorme bem, sem dificuldades.", label: "Dorme bem" },
+      { text: "Tem dificuldade para pegar no sono.", label: "Dificuldade p/ dormir" },
+      { text: "Acorda várias vezes durante a noite.", label: "Acorda à noite" },
+      { text: "Só dorme com a presença de um adulto.", label: "Precisa de companhia" },
+    ]},
+    { key: "apegos", type: "checklist", label: "Possui objetos ou hábitos de apego?", options: ["Chupeta/bico", "Paninho", "Brinquedo específico", "Outro hábito", "Não possui"] },
+    { key: "apegos_detalhe", type: "text", label: "Qual(is) e em que momentos utiliza" },
+    { key: "higiene", type: "textarea", rows: 2, label: "Higiene — banho, escovação dos dentes, cuidados com o cabelo, unhas" },
+    { key: "desfralde", type: "textarea", rows: 2, label: "Controle esfincteriano / desfralde — fase atual, sinalização, uso de recursos visuais" },
+    { key: "independencia", type: "textarea", rows: 2, label: "Independência — vestir-se, calçar-se, subir/descer escadas, servir-se de água ou alimento" },
+  ]},
+  { num: 10, title: "Aspectos socioemocionais e comportamento", fields: [
+    { key: "humor_predominante", type: "textarea", rows: 2, label: "Humor predominante e formas como a criança expressa suas necessidades" },
+    { key: "crise_texto", type: "chips", rows: 3, label: "O que costuma desencadear uma crise e o que ajuda a acalmar a criança", chips: [
+      { text: "Mudanças bruscas de rotina costumam desencadear crise.", label: "Mudança de rotina" },
+      { text: "Ruído ou ambiente muito estimulante costuma incomodar.", label: "Ruído/estímulo" },
+      { text: "Abraço e fala calma costumam acalmar.", label: "Abraço acalma" },
+      { text: "Precisa de espaço e silêncio para se acalmar.", label: "Precisa de espaço" },
+    ]},
+    { key: "reacao_mudancas", type: "textarea", rows: 2, label: "Reação a mudanças de rotina ou ambiente" },
+    { key: "sensibilidades_sensoriais", type: "textarea", rows: 2, label: "Sensibilidades sensoriais (ruídos, luzes, toque, aglomeração)" },
+    { key: "movimentos_repetitivos", type: "checklist", label: "A família já notou algum desses movimentos ou comportamentos repetitivos?", options: ["Balançar o corpo", "Bater ou agitar as mãos", "Girar objetos ou o próprio corpo", "Andar na ponta dos pés com frequência", "Alinhar ou enfileirar objetos", "Repetir palavras ou frases (ecolalia)", "Fixar o olhar de forma incomum em objetos ou luzes", "Nenhum desses"] },
+    { key: "interacao_social", type: "textarea", rows: 2, label: "Interação social — brinca sozinho(a) ou em grupo, com adultos e/ou outras crianças" },
+    { key: "mudancas_perdas", type: "textarea", rows: 2, label: "Mudanças ou perdas significativas vividas pela criança (mudança de casa/unidade, nascimento de irmão, luto, etc.)" },
+    { key: "encaminhamento_especialista", type: "text", label: "Desenvolvimento típico da idade — dúvidas ou observações da família a discutir com especialista (psicólogo/pediatra), se houver", hint: "Campo apenas para encaminhamento; orientar a família a buscar profissional especializado quando necessário." },
+  ]},
+  { num: 11, title: "Relacionamento familiar e contexto social", fields: [
+    { key: "qualidade_relacionamento", type: "textarea", rows: 3, label: "Qualidade do relacionamento com cada familiar próximo (quem mais interage, quem mais protege)" },
+    { key: "regras_disciplina", type: "textarea", rows: 2, label: "Regras, limites e formas de disciplina utilizadas em casa" },
+    { key: "locomocao", type: "text", label: "Meio de locomoção até a unidade / condições relevantes ao deslocamento" },
+    { key: "passeios", type: "checklist", label: "Passeios e atividades que a família costuma fazer com a criança", options: ["Parque", "Praia", "Cinema/teatro", "Leitura de historinhas", "Visitas a familiares", "Outro"] },
+    { key: "quem_brinca", type: "textarea", rows: 2, label: "Quem brinca com a criança, como e com o quê (inclusive tecnologia: TV, celular, videogame)" },
+  ]},
+  { num: 12, title: "Trajetória na educação infantil", fields: [
+    { key: "tempo_unidade", type: "text", label: "Tempo nesta unidade (NEIM)" },
+    { key: "unidades_anteriores", type: "text", label: "Unidade(s) educativa(s) anterior(es)" },
+    { key: "outra_sala_multimeios", type: "yesno", label: "Já frequentou outra Sala Multimeios ou atendimento especializado?", yes: "Já frequentou outra Sala Multimeios ou atendimento especializado.", no: "Não frequentou outra Sala Multimeios ou atendimento especializado." },
+    { key: "percepcao_adaptacao", type: "textarea", rows: 2, label: "Percepção da família sobre a adaptação à unidade e o relacionamento com professoras e colegas" },
+    { key: "queixas_unidade", type: "textarea", rows: 2, label: "Queixas ou dificuldades já relatadas pela unidade" },
+  ]},
+  { num: 13, title: "Diagnóstico, expectativas e encaminhamentos", fields: [
+    { key: "recebimento_diagnostico", type: "textarea", rows: 3, label: "Como a família recebeu e compreende o diagnóstico" },
+    { key: "expectativas_familia", type: "textarea", rows: 3, label: "Expectativas da família em relação ao desenvolvimento e à escolarização da criança" },
+    { key: "encaminhamentos", type: "textarea", rows: 2, label: "Encaminhamentos já realizados (posto de saúde, APAE, assistência social, outros)" },
+  ]},
+  { num: 14, title: "Autorização de uso de imagem", fields: [
+    { key: "autoriza_imagem", type: "yesno", label: "A família autoriza o uso de imagem da criança para registro pedagógico, divulgação de atividades do AEE e filmagens para acompanhamento?", yes: "A família autoriza o uso de imagem da criança para registro pedagógico, divulgação de atividades do AEE e filmagens para acompanhamento.", no: "A família não autoriza o uso de imagem da criança." },
+  ]},
+];
+
+/* ======================= RENDERIZAÇÃO ======================= */
+const root = document.getElementById('sectionsRoot');
+const allFieldKeys = [];
+const fieldLabels = {};
+
+SECTIONS.forEach(section => {
+  const secDiv = document.createElement('div');
+  secDiv.className = 'section';
+  secDiv.innerHTML = `<div class="section-title">${section.num}. ${section.title}</div>`;
+
+  section.fields.forEach(field => {
+    allFieldKeys.push(field.key);
+    fieldLabels[field.key] = field.label;
+    const fieldDiv = document.createElement('div');
+    fieldDiv.className = 'field';
+    let inner = `<label class="q">${field.label}</label>`;
+
+    if (field.type === 'text') {
+      inner += `<input type="text" data-key="${field.key}">`;
+    } else if (field.type === 'textarea') {
+      inner += `<textarea data-key="${field.key}" rows="${field.rows || 2}"></textarea>`;
+    } else if (field.type === 'yesno') {
+      inner += `<div class="options" data-autofill="${field.key}" data-yes="${field.yes.replace(/"/g,'&quot;')}" data-no="${field.no.replace(/"/g,'&quot;')}">
+        <div class="opt" data-val="sim">Sim</div><div class="opt" data-val="nao">Não</div>
+      </div>
+      <textarea data-key="${field.key}" rows="1"></textarea>`;
+    } else if (field.type === 'checklist') {
+      inner += `<div class="options" data-checklist="${field.key}">`;
+      field.options.forEach(opt => { inner += `<div class="opt" data-val="${opt}">${opt}</div>`; });
+      inner += `</div><input type="hidden" data-key="${field.key}">`;
+    } else if (field.type === 'chips') {
+      inner += `<div class="chips" data-target="${field.key}">`;
+      field.chips.forEach(c => { inner += `<span class="chip" data-text="${c.text.replace(/"/g,'&quot;')}">${c.label}</span>`; });
+      inner += `</div><textarea data-key="${field.key}" rows="${field.rows || 2}" placeholder="Clique num atalho acima ou digite livremente"></textarea>`;
+    }
+    if (field.hint) inner += `<div class="hint">${field.hint}</div>`;
+    fieldDiv.innerHTML = inner;
+    secDiv.appendChild(fieldDiv);
+  });
+  root.appendChild(secDiv);
+});
+
+/* ======================= INTERAÇÕES ======================= */
+// Sim/Não com autopreenchimento de frase
+document.querySelectorAll('.options[data-autofill]').forEach(group => {
+  const targetKey = group.dataset.autofill;
+  group.querySelectorAll('.opt').forEach(opt => {
+    opt.addEventListener('click', () => {
+      group.querySelectorAll('.opt').forEach(o => o.classList.remove('selected'));
+      opt.classList.add('selected');
+      const text = opt.dataset.val === 'sim' ? group.dataset.yes : group.dataset.no;
+      document.querySelector(`[data-key="${targetKey}"]`).value = text;
+    });
+  });
+});
+
+// Checklists de múltipla escolha (guarda lista separada por vírgula num input hidden)
+document.querySelectorAll('.options[data-checklist]').forEach(group => {
+  const targetKey = group.dataset.checklist;
+  const hidden = document.querySelector(`input[type="hidden"][data-key="${targetKey}"]`);
+  group.querySelectorAll('.opt').forEach(opt => {
+    opt.addEventListener('click', () => {
+      opt.classList.toggle('selected');
+      const selected = Array.from(group.querySelectorAll('.opt.selected')).map(o => o.dataset.val);
+      hidden.value = selected.join(', ');
+    });
+  });
+});
+
+// Atalhos (chips) que inserem frase pronta em campo aberto
+document.querySelectorAll('.chip').forEach(chip => {
+  chip.addEventListener('click', () => {
+    const key = chip.closest('.chips').dataset.target;
+    const textarea = document.querySelector(`[data-key="${key}"]`);
+    const current = textarea.value.trim();
+    textarea.value = current ? (current + ' ' + chip.dataset.text) : chip.dataset.text;
+  });
+});
+
+document.getElementById('btnReset').addEventListener('click', () => {
+  if (!confirm('Limpar todas as respostas preenchidas?')) return;
+  document.querySelectorAll('[data-key]').forEach(el => el.value = '');
+  document.querySelectorAll('.opt.selected').forEach(o => o.classList.remove('selected'));
+});
+
+/* ======================= ENVIO (download OU e-mail, conforme SEND_MODE) ======================= */
+function collectPayload() {
+  const nome = document.querySelector('[data-key="nome_crianca"]').value || '(não informado)';
+  const data = {};
+  allFieldKeys.forEach(key => {
+    data[key] = document.querySelector(`[data-key="${key}"]`).value || '(não preenchido)';
+  });
+  return { nome, data };
+}
+
+// Gera o mesmo .doc bem formatado, usado tanto para baixar quanto para anexar no e-mail
+function buildWordBlob(nome, data) {
+  let rowsHtml = '';
+  SECTIONS.forEach(section => {
+    rowsHtml += `<tr><td colspan="2" style="background:#1f3864;color:#fff;font-weight:bold;padding:6px;border:1px solid #999;">${section.num}. ${section.title}</td></tr>`;
+    section.fields.forEach(f => {
+      const val = (data[f.key] || '(não preenchido)').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+      rowsHtml += `<tr><td style="background:#f2f2f2;font-weight:bold;padding:6px;width:35%;border:1px solid #999;">${f.label}</td><td style="padding:6px;border:1px solid #999;">${val}</td></tr>`;
+    });
+  });
+  const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>body{font-family:Calibri, Arial, sans-serif; font-size:11pt;} h1{color:#1f3864; font-size:16pt;} table{border-collapse:collapse; width:100%;} td{font-size:11pt;}</style></head><body>
+    <h1>Entrevista com a Família — Sala Multimeios (AEE)</h1>
+    <p><em>Preenchido em ${new Date().toLocaleString('pt-BR')}</em></p>
+    <table>${rowsHtml}</table></body></html>`;
+  const blob = new Blob(['\ufeff', html], { type: 'application/msword' });
+  const safeName = nome.replace(/[^\w\-]+/g,'_').substring(0,40) || 'entrevista';
+  return { blob, filename: `entrevista_familia_${safeName}.doc` };
+}
+
+function showThanks() {
+  document.getElementById('formArea').style.display = 'none';
+  document.getElementById('footerArea').style.display = 'none';
+  document.getElementById('thanksScreen').classList.add('show');
+}
+
+if (SEND_MODE === 'download') {
+  document.getElementById('modeSubtitle').textContent = 'Sala Multimeios · Atendimento Educacional Especializado (AEE) — versão presencial (offline)';
+  document.getElementById('noteBanner').innerHTML = `<strong>Como funciona este arquivo:</strong> funciona sozinho, sem internet — é só abrir no navegador do computador ou celular. Perguntas de Sim/Não já preenchem a frase ao clicar; checklists permitem marcar mais de uma opção; perguntas abertas são de digitação livre (algumas com atalhos). Ao clicar em <strong>"Enviar"</strong>, um arquivo <strong>.doc</strong> com todas as respostas é baixado automaticamente neste aparelho.`;
+  document.getElementById('btnNova').style.display = 'inline-block';
+
+  document.getElementById('btnSend').addEventListener('click', () => {
+    const { nome, data } = collectPayload();
+    const { blob, filename } = buildWordBlob(nome, data);
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+    showThanks();
+  });
+
+  document.getElementById('btnNova').addEventListener('click', () => {
+    document.querySelectorAll('[data-key]').forEach(el => el.value = '');
+    document.querySelectorAll('.opt.selected').forEach(o => o.classList.remove('selected'));
+    document.getElementById('thanksScreen').classList.remove('show');
+    document.getElementById('formArea').style.display = '';
+    document.getElementById('footerArea').style.display = '';
+    window.scrollTo(0,0);
+  });
+
+} else if (SEND_MODE === 'email') {
+  document.getElementById('modeSubtitle').textContent = 'Sala Multimeios · Atendimento Educacional Especializado (AEE) — envio automático por e-mail';
+  document.getElementById('noteBanner').innerHTML = `<strong>Como funciona este arquivo:</strong> perguntas de Sim/Não já preenchem a frase ao clicar; checklists permitem marcar mais de uma opção; perguntas abertas são de digitação livre (algumas com atalhos). Ao clicar em <strong>"Enviar"</strong>, um arquivo <strong>.doc</strong> já formatado (igual ao da versão presencial) é enviado como anexo por e-mail para <strong>${NOTIFY_EMAIL}</strong>, de qualquer aparelho. <br><br><strong>Importante:</strong> precisa de internet no momento de enviar. Na primeira vez, o serviço (FormSubmit) manda uma confirmação única para ${NOTIFY_EMAIL} — é preciso clicar nela para ativar o recebimento.`;
+
+  // Se a página foi recarregada após o redirecionamento do FormSubmit (?enviado=1), mostra a tela de agradecimento direto
+  if (new URLSearchParams(window.location.search).get('enviado') === '1') {
+    showThanks();
+  }
+
+  document.getElementById('btnSend').addEventListener('click', () => {
+    const { nome, data } = collectPayload();
+    const { blob, filename } = buildWordBlob(nome, data);
+    const file = new File([blob], filename, { type: blob.type });
+
+    // Monta um formulário real (não-AJAX) — é o único método que o FormSubmit
+    // garante entregar anexos de arquivo corretamente.
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = `https://formsubmit.co/${NOTIFY_EMAIL}`;
+    form.enctype = 'multipart/form-data';
+    form.style.display = 'none';
+
+    const addHidden = (name, value) => {
+      const input = document.createElement('input');
+      input.type = 'hidden'; input.name = name; input.value = value;
+      form.appendChild(input);
+    };
+    addHidden('_subject', `Entrevista com a família — ${nome}`);
+    if (CC_EMAILS.trim()) addHidden('_cc', CC_EMAILS.trim());
+    addHidden('_captcha', 'false');
+    // Volta para esta mesma página com ?enviado=1, para mostrar a tela de agradecimento
+    const redirectUrl = window.location.origin + window.location.pathname + '?enviado=1';
+    addHidden('_next', redirectUrl);
+    addHidden('Criança', nome);
+    addHidden('Preenchido em', new Date().toLocaleString('pt-BR'));
+
+    const fileInput = document.createElement('input');
+    fileInput.type = 'file';
+    fileInput.name = 'attachment';
+    fileInput.style.display = 'none';
+    const dt = new DataTransfer();
+    dt.items.add(file);
+    fileInput.files = dt.files;
+    form.appendChild(fileInput);
+
+    document.body.appendChild(form);
+    form.submit();
+  });
+}
+</script>
+
+</body>
+</html>
