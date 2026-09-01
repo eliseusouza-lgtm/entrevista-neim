@@ -227,6 +227,12 @@ const SECTIONS = [
   { num: 14, title: "Autorização de uso de imagem", fields: [
     { key: "autoriza_imagem", type: "yesno", label: "A família autoriza o uso de imagem da criança para registro pedagógico, divulgação de atividades do AEE e filmagens para acompanhamento?", yes: "A família autoriza o uso de imagem da criança para registro pedagógico, divulgação de atividades do AEE e filmagens para acompanhamento.", no: "A família não autoriza o uso de imagem da criança." },
   ]},
+  { num: 15, title: "Interesse no Atendimento Educacional Especializado (AEE)",
+    intro: "A Sala Multimeios tem por objetivo promover instrumentos de acessibilidade para participação de estudantes com Deficiência, Transtornos do Espectro Autista e Altas Habilidades/Superdotação no contexto da Unidade Educativa. O AEE complementa e/ou suplementa a formação do estudante com vistas à autonomia e independência na escola e fora dela.",
+    fields: [
+    { key: "interesse_aee", type: "yesno", label: "A família tem interesse na participação da criança no Atendimento Educacional Especializado (AEE) Individualizado?", yes: "A família tem interesse na participação da criança no AEE Individualizado e se compromete com a assiduidade no atendimento.", no: "A família recusa, neste momento, a oferta do AEE Individualizado.", hint: "A recusa implica a perda da vaga no AEE Individualizado — a criança continuará sendo acompanhada pelos professores de Educação Especial da Sala Multimeios. Caso o interesse mude futuramente, a família deve informar a equipe para reorganização do atendimento." },
+    { key: "motivo_recusa", type: "textarea", rows: 2, label: "Se houver recusa, motivo informado pela família:" },
+  ]},
 ];
 
 /* ======================= RENDERIZAÇÃO ======================= */
@@ -238,6 +244,12 @@ SECTIONS.forEach(section => {
   const secDiv = document.createElement('div');
   secDiv.className = 'section';
   secDiv.innerHTML = `<div class="section-title">${section.num}. ${section.title}</div>`;
+  if (section.intro) {
+    const introDiv = document.createElement('div');
+    introDiv.className = 'field';
+    introDiv.innerHTML = `<p style="margin:0; font-size:.83rem; line-height:1.5; color:#3a4658;">${section.intro}</p>`;
+    secDiv.appendChild(introDiv);
+  }
 
   section.fields.forEach(field => {
     allFieldKeys.push(field.key);
