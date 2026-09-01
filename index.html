@@ -60,6 +60,9 @@
 <main id="formArea">
   <div class="note-banner" id="noteBanner"></div>
   <div id="sectionsRoot"></div>
+  <p style="text-align:center; font-size:.85rem; color:#3a4658; margin-top:28px; font-weight:500;">
+    Material elaborado pelos professores da Sala Multimeios — NEIM Coqueiros, 2026.
+  </p>
 </main>
 
 <footer id="footerArea">
@@ -69,13 +72,27 @@
 
 <script>
 /* ======================= CONFIGURAÇÃO DE MODO ======================= */
-// "download"  -> versão presencial: gera .doc local, sem precisar de internet
+// "download"  -> versão presencial: gera .rtf local, sem precisar de internet
 // "email"     -> versão virtual: envia por e-mail via FormSubmit (precisa de internet ao enviar)
 const SEND_MODE = "email"; // trocar para "email" na versão virtual
-const NOTIFY_EMAIL = "eliseu.souza@prof.pmf.sc.gov.br";
-// Para mandar cópia para mais e-mails, liste-os aqui separados por vírgula (ex.: "outra.pessoa@prof.pmf.sc.gov.br,coordenacao@prof.pmf.sc.gov.br").
-// Deixe como string vazia "" se quiser só o NOTIFY_EMAIL acima.
+const NOTIFY_EMAIL = "multimeios.coqueiros@prof.pmf.sc.gov.br";
+// E-mail padrão acima. Para mandar UMA entrevista específica para outro(s) profissional(is),
+// sem precisar editar este arquivo, é só acrescentar ?para= no final do link antes de
+// compartilhar, seguido do(s) e-mail(s) separados por vírgula — ex.:
+// ...?para=fono@prof.pmf.sc.gov.br,psicologa@prof.pmf.sc.gov.br
+// O primeiro e-mail da lista recebe como destinatário principal; os demais entram como cópia (CC).
+const urlEmailParam = new URLSearchParams(window.location.search).get('para');
+const urlEmails = (urlEmailParam || '')
+  .split(',')
+  .map(e => e.trim())
+  .filter(e => e.includes('@') && e.includes('.'));
+const DEST_EMAIL = urlEmails.length ? urlEmails[0] : NOTIFY_EMAIL;
+const urlCcEmails = urlEmails.slice(1).join(',');
+// Para SEMPRE mandar cópia fixa para algum e-mail (além do que vier pelo link), liste aqui,
+// separado por vírgula. Deixe como string vazia "" se não quiser nenhuma cópia fixa.
 const CC_EMAILS = "";
+// Junta a cópia fixa (CC_EMAILS) com a cópia extra que vier pelo link (?para=e1,e2,e3)
+const ALL_CC = [CC_EMAILS.trim(), urlCcEmails].filter(Boolean).join(',');
 
 /* ======================= TODAS AS SEÇÕES E PERGUNTAS ======================= */
 // tipos de campo: text | textarea | yesno | checklist | chips
@@ -307,23 +324,54 @@ function collectPayload() {
   return { nome, data };
 }
 
-// Gera o mesmo .doc bem formatado, usado tanto para baixar quanto para anexar no e-mail
+// Escapa texto para o formato RTF (trata acentos, barras invertidas e chaves corretamente)
+function rtfEscape(text) {
+  let out = '';
+  for (const ch of String(text)) {
+    const code = ch.codePointAt(0);
+    if (ch === '\\' || ch === '{' || ch === '}') {
+      out += '\\' + ch;
+    } else if (code > 126) {
+      out += '\\u' + code + '?';
+    } else {
+      out += ch;
+    }
+  }
+  return out;
+}
+
+// Gera um documento .rtf de verdade (não é um truque de HTML disfarçado) — abre de forma
+// confiável no Word, LibreOffice, Google Docs e em qualquer visualizador de celular.
+// Usado tanto para baixar (presencial) quanto para anexar no e-mail (virtual).
+function rtfTableRow(label, value) {
+  const border = '\\clbrdrt\\brdrs\\brdrw10\\brdrcf3\\clbrdrl\\brdrs\\brdrw10\\brdrcf3\\clbrdrb\\brdrs\\brdrw10\\brdrcf3\\clbrdrr\\brdrs\\brdrw10\\brdrcf3';
+  return `\\trowd\\trgaph80\\trleft0`
+    + `${border}\\cellx2600`
+    + `${border}\\cellx9300`
+    + `\\pard\\intbl\\b ${rtfEscape(label)}\\b0\\cell`
+    + `\\pard\\intbl ${rtfEscape(value)}\\cell`
+    + `\\row`;
+}
+
 function buildWordBlob(nome, data) {
-  let rowsHtml = '';
+  let body = '';
+  body += `{\\cf1\\b\\fs32 ${rtfEscape('Entrevista com a Família — Sala Multimeios (AEE)')}}\\par`;
+  body += `{\\i ${rtfEscape('Preenchido em ' + new Date().toLocaleString('pt-BR'))}}\\par\\par`;
   SECTIONS.forEach(section => {
-    rowsHtml += `<tr><td colspan="2" style="background:#1f3864;color:#fff;font-weight:bold;padding:6px;border:1px solid #999;">${section.num}. ${section.title}</td></tr>`;
+    body += `{\\cf1\\b\\fs26 ${rtfEscape(section.num + '. ' + section.title)}}\\par`;
     section.fields.forEach(f => {
-      const val = (data[f.key] || '(não preenchido)').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-      rowsHtml += `<tr><td style="background:#f2f2f2;font-weight:bold;padding:6px;width:35%;border:1px solid #999;">${f.label}</td><td style="padding:6px;border:1px solid #999;">${val}</td></tr>`;
+      const val = data[f.key] || '(não preenchido)';
+      body += rtfTableRow(f.label, val);
     });
+    body += `\\pard\\par\\par`;
   });
-  const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>body{font-family:Calibri, Arial, sans-serif; font-size:11pt;} h1{color:#1f3864; font-size:16pt;} table{border-collapse:collapse; width:100%;} td{font-size:11pt;}</style></head><body>
-    <h1>Entrevista com a Família — Sala Multimeios (AEE)</h1>
-    <p><em>Preenchido em ${new Date().toLocaleString('pt-BR')}</em></p>
-    <table>${rowsHtml}</table></body></html>`;
-  const blob = new Blob(['\ufeff', html], { type: 'application/msword' });
+  const rtf = `{\\rtf1\\ansi\\ansicpg1252\\deff0`
+    + `{\\fonttbl{\\f0 Calibri;}}`
+    + `{\\colortbl;\\red31\\green56\\blue100;\\red242\\green242\\blue242;\\red155\\green178\\blue206;}`
+    + `\\f0\\fs22\n${body}\n}`;
+  const blob = new Blob([rtf], { type: 'application/rtf' });
   const safeName = nome.replace(/[^\w\-]+/g,'_').substring(0,40) || 'entrevista';
-  return { blob, filename: `entrevista_familia_${safeName}.doc` };
+  return { blob, filename: `entrevista_familia_${safeName}.rtf` };
 }
 
 function showThanks() {
@@ -334,7 +382,7 @@ function showThanks() {
 
 if (SEND_MODE === 'download') {
   document.getElementById('modeSubtitle').textContent = 'Sala Multimeios · Atendimento Educacional Especializado (AEE) — versão presencial (offline)';
-  document.getElementById('noteBanner').innerHTML = `<strong>Como funciona este arquivo:</strong> funciona sozinho, sem internet — é só abrir no navegador do computador ou celular. Perguntas de Sim/Não já preenchem a frase ao clicar; checklists permitem marcar mais de uma opção; perguntas abertas são de digitação livre (algumas com atalhos). Ao clicar em <strong>"Enviar"</strong>, um arquivo <strong>.doc</strong> com todas as respostas é baixado automaticamente neste aparelho.`;
+  document.getElementById('noteBanner').innerHTML = `<strong>Como funciona este arquivo:</strong> funciona sozinho, sem internet — é só abrir no navegador do computador ou celular. Perguntas de Sim/Não já preenchem a frase ao clicar; checklists permitem marcar mais de uma opção; perguntas abertas são de digitação livre (algumas com atalhos). Ao clicar em <strong>"Enviar"</strong>, um arquivo <strong>.rtf</strong> (abre no Word, LibreOffice e Google Docs) com todas as respostas é baixado automaticamente neste aparelho.`;
   document.getElementById('btnNova').style.display = 'inline-block';
 
   document.getElementById('btnSend').addEventListener('click', () => {
@@ -359,7 +407,7 @@ if (SEND_MODE === 'download') {
 
 } else if (SEND_MODE === 'email') {
   document.getElementById('modeSubtitle').textContent = 'Sala Multimeios · Atendimento Educacional Especializado (AEE) — envio automático por e-mail';
-  document.getElementById('noteBanner').innerHTML = `<strong>Como funciona este arquivo:</strong> perguntas de Sim/Não já preenchem a frase ao clicar; checklists permitem marcar mais de uma opção; perguntas abertas são de digitação livre (algumas com atalhos). Ao clicar em <strong>"Enviar"</strong>, um arquivo <strong>.doc</strong> já formatado (igual ao da versão presencial) é enviado como anexo por e-mail para <strong>${NOTIFY_EMAIL}</strong>, de qualquer aparelho. <br><br><strong>Importante:</strong> precisa de internet no momento de enviar. Na primeira vez, o serviço (FormSubmit) manda uma confirmação única para ${NOTIFY_EMAIL} — é preciso clicar nela para ativar o recebimento.`;
+  document.getElementById('noteBanner').innerHTML = `<strong>Como funciona este arquivo:</strong> perguntas de Sim/Não já preenchem a frase ao clicar; checklists permitem marcar mais de uma opção; perguntas abertas são de digitação livre (algumas com atalhos). Ao clicar em <strong>"Enviar"</strong>, um arquivo <strong>.rtf</strong> já formatado (abre no Word, LibreOffice e Google Docs, igual ao da versão presencial) é enviado como anexo por e-mail para <strong>${DEST_EMAIL}</strong>, de qualquer aparelho. <br><br><strong>Importante:</strong> precisa de internet no momento de enviar. Se este e-mail nunca recebeu resposta deste formulário antes, o serviço (FormSubmit) manda uma confirmação única para ${DEST_EMAIL} — é preciso clicar nela para ativar o recebimento.`;
 
   // Se a página foi recarregada após o redirecionamento do FormSubmit (?enviado=1), mostra a tela de agradecimento direto
   if (new URLSearchParams(window.location.search).get('enviado') === '1') {
@@ -375,7 +423,7 @@ if (SEND_MODE === 'download') {
     // garante entregar anexos de arquivo corretamente.
     const form = document.createElement('form');
     form.method = 'POST';
-    form.action = `https://formsubmit.co/${NOTIFY_EMAIL}`;
+    form.action = `https://formsubmit.co/${DEST_EMAIL}`;
     form.enctype = 'multipart/form-data';
     form.style.display = 'none';
 
@@ -385,7 +433,7 @@ if (SEND_MODE === 'download') {
       form.appendChild(input);
     };
     addHidden('_subject', `Entrevista com a família — ${nome}`);
-    if (CC_EMAILS.trim()) addHidden('_cc', CC_EMAILS.trim());
+    if (ALL_CC) addHidden('_cc', ALL_CC);
     addHidden('_captcha', 'false');
     // Volta para esta mesma página com ?enviado=1, para mostrar a tela de agradecimento
     const redirectUrl = window.location.origin + window.location.pathname + '?enviado=1';
